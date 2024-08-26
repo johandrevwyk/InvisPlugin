@@ -5,6 +5,8 @@ using CounterStrikeSharp.API.Modules.Commands;
 using System.Drawing;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API;
+using static CounterStrikeSharp.API.Core.Listeners;
+using CounterStrikeSharp.API.Modules.Memory;
 
 namespace InvisPlugin;
 
@@ -13,11 +15,12 @@ public class InvisPlugin : BasePlugin
 {
     public override string ModuleName => "InvisPlugin";
 
-    public override string ModuleVersion => "0.1.1";
-    public override string ModuleAuthor => "Manio";
+    public override string ModuleVersion => "0.1.2";
+    public override string ModuleAuthor => "Manio, fork - heartbreakhotel";
     public override string ModuleDescription => "Invisibility plugin";
 
-    HashSet<int?> InvisIds = new HashSet<int?>(); 
+    public List<CCSPlayerController> InvisiblePlayers = [];
+
     public override void Load(bool hotReload)
     {
         Console.WriteLine(" ");
@@ -28,39 +31,60 @@ public class InvisPlugin : BasePlugin
         Console.WriteLine("|   | |  _    ||       ||   | |_____  |    |    ___||   |___ |       ||   ||  ||   | |  _    |");
         Console.WriteLine("|   | | | |   | |     | |   |  _____| |    |   |    |       ||       ||   |_| ||   | | | |   |");
         Console.WriteLine("|___| |_|  |__|  |___|  |___| |_______|    |___|    |_______||_______||_______||___| |_|  |__|");
-        Console.WriteLine("			     >> Version: 0.1.1");
+        Console.WriteLine("			     >> Version: 0.1.2");
         Console.WriteLine("		>> GitHub: https://github.com/maniolos/Cs2Invis");
+        Console.WriteLine("		>> Fork: https://github.com/johandrevwyk/InvisPlugin");
         Console.WriteLine(" ");
+
+        RegisterListener<Listeners.OnTick>(OnTick);
+        RegisterEventHandler<EventItemPickup>(OnItemPickup);
+        RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
     }
+
     [ConsoleCommand("css_invis", "Invisible command")]
     [RequiresPermissions("@css/invis")]
     public void OnInvisCommand(CCSPlayerController? player, CommandInfo commandInfo)
     {
-        if (player == null)
-            return;
-        if (!InvisIds.Contains(player.UserId))
-        {
-            SetPlayerInvisible(player);
-            InvisIds.Add(player.UserId);
-            commandInfo.ReplyToCommand("Invisiblity enabled");
-        }
-        
-    }
+        if (player == null || !player.IsValid || !player.PawnIsAlive) return;
 
-    [ConsoleCommand("css_uninvis", "Make Visible command")]
-    [RequiresPermissions("@css/invis")]
-    public void OnUnInvisCommand(CCSPlayerController? player, CommandInfo commandInfo)
-    {
-        if (player == null || !player.IsValid || !player.PawnIsAlive)
-            return;
-        if (InvisIds.Contains(player.UserId))
+        if (InvisiblePlayers.Contains(player))
         {
-            InvisIds.Remove(player.UserId);
             SetPlayerVisible(player);
+            InvisiblePlayers.Remove(player);          
             commandInfo.ReplyToCommand("Invisiblity disabled");
         }
-        
+        else
+        {
+            SetPlayerInvisible(player);
+            InvisiblePlayers.Add(player);
+            commandInfo.ReplyToCommand("Invisiblity enabled");
+        }
+
     }
+
+    private void OnTick()
+    {
+        foreach (CCSPlayerController player in InvisiblePlayers)
+        {
+            var pawn = player.PlayerPawn.Value;
+
+            if (pawn != null)
+            {
+                pawn.EntitySpottedState.Spotted = false;
+                Utilities.SetStateChanged(pawn, "CCSPlayerPawn", "m_entitySpottedState", Schema.GetSchemaOffset("EntitySpottedState_t", "m_bSpotted"));
+
+                Span<uint> spottedByMask = pawn.EntitySpottedState.SpottedByMask;
+                for (int i = 0; i < spottedByMask.Length; i++)
+                {
+                    spottedByMask[i] = 0;
+                }
+
+                Utilities.SetStateChanged(pawn, "CCSPlayerPawn", "m_entitySpottedState", Schema.GetSchemaOffset("EntitySpottedState_t", "m_bSpottedByMask"));
+            }
+        }
+    }
+
+
     public static void SetPlayerVisible(CCSPlayerController player)
     {
         var playerPawnValue = player.PlayerPawn.Value;
@@ -130,18 +154,25 @@ public class InvisPlugin : BasePlugin
         }
        
     }
-    // Output hooks can use wildcards to match multiple entities
-    [GameEventHandler]
+
     public HookResult OnItemPickup(EventItemPickup @event, GameEventInfo info)
     {
         CCSPlayerController player = @event.Userid!;
-
-        int playerevent = (int)player.UserId!;
  
-        if (InvisIds.Contains(playerevent))
+        if (player != null && InvisiblePlayers.Contains(player))
         {
             SetPlayerInvisible(player);
         }
+
+        return HookResult.Continue;
+    }
+
+    public HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
+    {
+        CCSPlayerController player = @event.Userid!;
+
+        if (player == null) return HookResult.Continue;
+        InvisiblePlayers.Remove(player);
 
         return HookResult.Continue;
     }
