@@ -10,13 +10,13 @@ using CounterStrikeSharp.API.Modules.Memory;
 
 namespace InvisPlugin;
 
-[MinimumApiVersion(80)]
+[MinimumApiVersion(260)]
 public class InvisPlugin : BasePlugin
 {
     public override string ModuleName => "InvisPlugin";
 
     public override string ModuleVersion => "0.1.2";
-    public override string ModuleAuthor => "Manio, fork - heartbreakhotel";
+    public override string ModuleAuthor => "Manio";
     public override string ModuleDescription => "Invisibility plugin";
 
     public List<CCSPlayerController> InvisiblePlayers = [];
@@ -36,7 +36,7 @@ public class InvisPlugin : BasePlugin
         Console.WriteLine("		>> Fork: https://github.com/johandrevwyk/InvisPlugin");
         Console.WriteLine(" ");
 
-        RegisterListener<Listeners.OnTick>(OnTick);
+        RegisterListener<OnTick>(OnTick);
         RegisterEventHandler<EventItemPickup>(OnItemPickup);
         RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
     }
