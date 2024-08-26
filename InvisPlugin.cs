@@ -149,6 +149,13 @@ public class InvisPlugin : BasePlugin
                     weapon.Render = Color.FromArgb(0, 255, 255, 255);
                     weapon.ShadowStrength = 0.0f;
                     Utilities.SetStateChanged(weapon, "CBaseModelEntity", "m_clrRender");
+
+                    if (weapon.DesignerName == "weapon_c4")
+                    {
+                        Console.WriteLine($"[Inaccurate] C4 Blinking Status: {weapon.Blinktoggle}");
+                        weapon.Blinktoggle = false;
+                        Utilities.SetStateChanged(weapon, "CBaseFlex", "m_blinktoggle");
+                    }
                 }
             }
         }
