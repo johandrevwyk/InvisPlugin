@@ -7,6 +7,8 @@ using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API;
 using static CounterStrikeSharp.API.Core.Listeners;
 using CounterStrikeSharp.API.Modules.Memory;
+using CounterStrikeSharp.API.Modules.Utils;
+using CounterStrikeSharp.API.Modules.Entities.Constants;
 
 namespace InvisPlugin;
 
@@ -42,7 +44,6 @@ public class InvisPlugin : BasePlugin
     }
 
     [ConsoleCommand("css_invis", "Invisible command")]
-    [RequiresPermissions("@css/invis")]
     public void OnInvisCommand(CCSPlayerController? player, CommandInfo commandInfo)
     {
         if (player == null || !player.IsValid || !player.PawnIsAlive) return;
@@ -52,15 +53,58 @@ public class InvisPlugin : BasePlugin
             SetPlayerVisible(player);
             InvisiblePlayers.Remove(player);          
             commandInfo.ReplyToCommand("Invisiblity disabled");
+            Server.PrintToChatAll($"{player.PlayerName} is now {ChatColors.Green}visible");
         }
         else
         {
             SetPlayerInvisible(player);
             InvisiblePlayers.Add(player);
             commandInfo.ReplyToCommand("Invisiblity enabled");
+            Server.PrintToChatAll($"{player.PlayerName} is now {ChatColors.Red}invisible");
         }
 
     }
+
+  /*  [ConsoleCommand("css_c4", "C4 command")]
+    public void OnC4Command(CCSPlayerController? player, CommandInfo commandInfo)
+    {
+        if (player == null || !player.IsValid || !player.PawnIsAlive) return;
+
+        if (CheckIfBombExists())
+        {
+            commandInfo.ReplyToCommand("There is already a C4 on the map");
+        }
+        else
+        {
+            if (InvisiblePlayers.Contains(player))
+            {
+                if (player.Team == CsTeam.Terrorist)
+                {
+                    player.GiveNamedItem("weapon_c4");
+                    commandInfo.ReplyToCommand("You gave yourself the C4");
+                }
+                else
+                {
+                    commandInfo.ReplyToCommand("You cannot use this command on CT");
+                }
+
+            }
+            else
+            {
+                commandInfo.ReplyToCommand("You need to be invisible to use this command");
+            }
+        }
+        
+
+    }*/
+
+    public bool CheckIfBombExists()
+    {
+        var bombEntities = Utilities.FindAllEntitiesByDesignerName<CC4>("weapon_c4");
+
+        return bombEntities.Count() > 0;
+    }
+
 
     private void OnTick()
     {
@@ -90,15 +134,19 @@ public class InvisPlugin : BasePlugin
         var playerPawnValue = player.PlayerPawn.Value;
         if (playerPawnValue == null)
             return;
+
         playerPawnValue.Render = Color.FromArgb(255, 255, 255, 255);
         Utilities.SetStateChanged(playerPawnValue, "CBaseModelEntity", "m_clrRender");
+
         var activeWeapon = playerPawnValue!.WeaponServices?.ActiveWeapon.Value;
+
         if (activeWeapon != null && activeWeapon.IsValid)
         {
             activeWeapon.Render = Color.FromArgb(255, 255, 255, 255);
             activeWeapon.ShadowStrength = 1.0f;
             Utilities.SetStateChanged(activeWeapon, "CBaseModelEntity", "m_clrRender");
         }
+
 
         var myWeapons = playerPawnValue.WeaponServices?.MyWeapons;
         if (myWeapons != null)
@@ -114,10 +162,22 @@ public class InvisPlugin : BasePlugin
                 }
             }
         }
+
+        var myWearables = playerPawnValue.MyWearables;
+        if (myWearables != null)
+        {
+            foreach (var wearable in myWearables)
+            {
+                wearable.Value!.Render = Color.FromArgb(255, 255, 255, 255);
+                Utilities.SetStateChanged(wearable.Value, "CBaseModelEntity", "m_clrRender");
+            }
+
+        }
+
     }
     public static void SetPlayerInvisible(CCSPlayerController player)
     {
-        
+
         var playerPawnValue = player.PlayerPawn.Value;
         if (playerPawnValue == null || !playerPawnValue.IsValid)
         {
@@ -129,6 +189,7 @@ public class InvisPlugin : BasePlugin
             playerPawnValue.Render = Color.FromArgb(0, 255, 255, 255);
             Utilities.SetStateChanged(playerPawnValue, "CBaseModelEntity", "m_clrRender");
         }
+
 
         var activeWeapon = playerPawnValue!.WeaponServices?.ActiveWeapon.Value;
         if (activeWeapon != null && activeWeapon.IsValid)
@@ -152,14 +213,30 @@ public class InvisPlugin : BasePlugin
 
                     if (weapon.DesignerName == "weapon_c4")
                     {
-                        Console.WriteLine($"[Inaccurate] C4 Blinking Status: {weapon.Blinktoggle}");
-                        weapon.Blinktoggle = false;
-                        Utilities.SetStateChanged(weapon, "CBaseFlex", "m_blinktoggle");
+                        var bombEntities = Utilities.FindAllEntitiesByDesignerName<CC4>("weapon_c4");
+
+                        if (bombEntities.Any())
+                        {
+                            var bomb = bombEntities.FirstOrDefault();
+                            bomb!.AnimGraphUpdateEnabled = false;
+                            Utilities.SetStateChanged(weapon, "CBaseAnimGraph", "m_bAnimGraphUpdateEnabled");
+                        }
                     }
                 }
             }
         }
-       
+
+        var myWearables = playerPawnValue.MyWearables;
+        if (myWearables != null)
+        {
+            foreach (var wearable in myWearables)
+            {
+                wearable.Value!.Render = Color.FromArgb(0, 255, 255, 255);
+                Utilities.SetStateChanged(wearable.Value, "CBaseModelEntity", "m_clrRender");
+            }
+
+        }
+
     }
 
     public HookResult OnItemPickup(EventItemPickup @event, GameEventInfo info)
