@@ -219,7 +219,7 @@ public class InvisPlugin : BasePlugin
                         {
                             var bomb = bombEntities.FirstOrDefault();
                             bomb!.AnimGraphUpdateEnabled = false;
-                            Utilities.SetStateChanged(weapon, "CBaseAnimGraph", "m_bAnimGraphUpdateEnabled");
+                            Utilities.SetStateChanged(bomb, "CBaseAnimGraph", "m_bAnimGraphUpdateEnabled");
                         }
                     }
                 }
