@@ -9,6 +9,7 @@ using static CounterStrikeSharp.API.Core.Listeners;
 using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Modules.Entities.Constants;
+using CounterStrikeSharp.API.Modules.Entities;
 
 namespace InvisPlugin;
 
@@ -22,6 +23,8 @@ public class InvisPlugin : BasePlugin
     public override string ModuleDescription => "Invisibility plugin";
 
     public List<CCSPlayerController> InvisiblePlayers = [];
+
+    bool _sound;
 
     public override void Load(bool hotReload)
     {
@@ -41,6 +44,7 @@ public class InvisPlugin : BasePlugin
         RegisterListener<OnTick>(OnTick);
         RegisterEventHandler<EventItemPickup>(OnItemPickup);
         RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
+        RegisterEventHandler<EventPlayerShoot>(OnPlayerShoot);
     }
 
     [ConsoleCommand("css_invis", "Invisible command")]
@@ -48,24 +52,33 @@ public class InvisPlugin : BasePlugin
     {
         if (player == null || !player.IsValid || !player.PawnIsAlive) return;
 
-        if (InvisiblePlayers.Contains(player))
+        if (InvisiblePlayers.Count == 0)
         {
-            SetPlayerVisible(player);
-            InvisiblePlayers.Remove(player);          
-            commandInfo.ReplyToCommand("Invisiblity disabled");
-            Server.PrintToChatAll($"{player.PlayerName} is now {ChatColors.Green}visible");
-        }
+            if (InvisiblePlayers.Contains(player))
+            {
+                SetPlayerVisible(player);
+                InvisiblePlayers.Remove(player);
+                commandInfo.ReplyToCommand("Invisiblity disabled");
+                Server.PrintToChatAll($"{player.PlayerName} is now {ChatColors.Green}visible");
+            }
+            else
+            {
+                SetPlayerInvisible(player);
+                InvisiblePlayers.Add(player);
+                commandInfo.ReplyToCommand("Invisiblity enabled");
+                Server.PrintToChatAll($"{player.PlayerName} is now {ChatColors.Red}invisible");
+            }
+        } 
         else
         {
-            SetPlayerInvisible(player);
-            InvisiblePlayers.Add(player);
-            commandInfo.ReplyToCommand("Invisiblity enabled");
-            Server.PrintToChatAll($"{player.PlayerName} is now {ChatColors.Red}invisible");
+            player.PrintToChat("There can only be 1 invisble player");
         }
+
+        
 
     }
 
-  /*  [ConsoleCommand("css_c4", "C4 command")]
+    [ConsoleCommand("css_c4", "C4 command")]
     public void OnC4Command(CCSPlayerController? player, CommandInfo commandInfo)
     {
         if (player == null || !player.IsValid || !player.PawnIsAlive) return;
@@ -96,7 +109,7 @@ public class InvisPlugin : BasePlugin
         }
         
 
-    }*/
+    }
 
     public bool CheckIfBombExists()
     {
@@ -125,6 +138,30 @@ public class InvisPlugin : BasePlugin
 
                 Utilities.SetStateChanged(pawn, "CCSPlayerPawn", "m_entitySpottedState", Schema.GetSchemaOffset("EntitySpottedState_t", "m_bSpottedByMask"));
             }
+
+            var movetype = player.MoveType;
+            var movetypeactual = player.ActualMoveType;
+            if ((movetype != MoveType_t.MOVETYPE_WALK && movetype != MoveType_t.MOVETYPE_NONE) &&
+            (movetypeactual != MoveType_t.MOVETYPE_WALK && movetypeactual != MoveType_t.MOVETYPE_NONE))
+            {
+                if (InvisiblePlayers.Contains(player) && _sound != true)
+                {
+                    _sound = true;
+                    SetPlayerVisible(player);
+                    player.PrintToChat("You made a noise therefore you are visible");
+                    Server.PrintToChatAll($"{player.PlayerName} is now {ChatColors.Green}visible{ChatColors.Default} for 3 seconds");
+
+                    AddTimer(3.0f, () =>
+                    {
+                        _sound = false;
+
+                        SetPlayerInvisible(player);
+                        player.PrintToChat("You are invisible again");
+                        Server.PrintToChatAll($"{player.PlayerName} is now {ChatColors.Red}invisible");
+                    });
+                }
+            }
+
         }
     }
 
@@ -163,7 +200,7 @@ public class InvisPlugin : BasePlugin
             }
         }
 
-        var myWearables = playerPawnValue.MyWearables;
+     /*   var myWearables = playerPawnValue.MyWearables;
         if (myWearables != null)
         {
             foreach (var wearable in myWearables)
@@ -172,7 +209,7 @@ public class InvisPlugin : BasePlugin
                 Utilities.SetStateChanged(wearable.Value, "CBaseModelEntity", "m_clrRender");
             }
 
-        }
+        }*/
 
     }
     public static void SetPlayerInvisible(CCSPlayerController player)
@@ -218,8 +255,7 @@ public class InvisPlugin : BasePlugin
                         if (bombEntities.Any())
                         {
                             var bomb = bombEntities.FirstOrDefault();
-                            bomb!.AnimGraphUpdateEnabled = false;
-                            Utilities.SetStateChanged(bomb, "CBaseAnimGraph", "m_bAnimGraphUpdateEnabled");
+                            bomb!.Remove();
                         }
                     }
                 }
@@ -248,6 +284,35 @@ public class InvisPlugin : BasePlugin
             SetPlayerInvisible(player);
         }
 
+        return HookResult.Continue;
+    }
+
+    public HookResult OnPlayerShoot(EventPlayerShoot @event, GameEventInfo @info)
+    {
+        if (@event != null)
+        {
+            CCSPlayerController player = @event.Userid!;
+            if (player != null)
+            {
+                if (InvisiblePlayers.Contains(player) && _sound != true)
+                {
+                    _sound = true;
+                    SetPlayerVisible(player);
+                    player.PrintToChat("You made a noise therefore you are visible");
+                    Server.PrintToChatAll($"{player.PlayerName} is now {ChatColors.Green}visible{ChatColors.Default} for 3 seconds");
+
+                    AddTimer(3.0f, () =>
+                    {
+                        _sound = false;
+
+                        SetPlayerInvisible(player);
+                        player.PrintToChat("You are invisible again");
+                        Server.PrintToChatAll($"{player.PlayerName} is now {ChatColors.Red}invisible");
+                    });
+                }
+            }
+            
+        }
         return HookResult.Continue;
     }
 
